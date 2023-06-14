@@ -149,6 +149,13 @@ public class server {
                 while (true) {
                     String input = sc.nextLine();
                     String pattern = "^close \\| ([a-fA-F0-9-]+)$";
+                    if (input.equals("help")) {
+                        String text = "Commands:\n" +
+                                "threads\n Displays number of active threads\n" +
+                                "sockets\n Displays map of active sockets and corresponding clientId\n" +
+                                "remove | clientId\n Shuts down socket with id = clientId and remove it from map\n";
+                        System.out.print(text);
+                    }
                     if (input.equals("threads"))
                         System.out.println("Number of active threads: " + Thread.activeCount());
                     if (input.equals("sockets")) {
