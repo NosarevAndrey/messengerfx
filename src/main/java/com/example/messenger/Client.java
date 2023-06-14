@@ -16,6 +16,7 @@ import java.util.*;
 import javafx.application.Platform;
 
 public class Client {
+    private static MutableString currentConversationID = new MutableString();
     private static Controller controller;
     private static MutableString clientName;
     private static Socket socket;
@@ -81,6 +82,10 @@ public class Client {
                         for (int i=0;i<Messages.get(sender_ID).size();i++){
                             System.out.println(Messages.get(sender_ID).get(i).toString());
                         }
+                        if(currentConversationID.toString().equals(sender_ID))
+                            Platform.runLater(() -> {
+                                controller.displayClient(currentConversationID.toString(), Messages, clientName.toString(), DialogNames.get(currentConversationID.toString()));
+                            });
                         break;
                     case "dialog_accept":
                         if (!DialogNames.containsKey(map.get("sender")) && !map.get("sender").equals(map.get("receiver"))){
@@ -167,25 +172,44 @@ public class Client {
             });
             receiveThread.start();
 
-            MutableString current_ID = new MutableString();
+
             controller.setSelectionListener(new ChangeListener<String>() {
                 @Override
                 public void changed(ObservableValue<? extends String> changed, String oldValue, String newValue) {
                     System.out.println("Selected: " + newValue);
-                    current_ID.setValue(getKeyFromValue(DialogNames, newValue));
+                    currentConversationID.setValue(getKeyFromValue(DialogNames, newValue));
                     Platform.runLater(() -> {
-                        controller.displayClient(current_ID.toString(), Messages, clientName.toString(), DialogNames.get(current_ID.toString()));
+                        controller.displayClient(currentConversationID.toString(), Messages, clientName.toString(), DialogNames.get(currentConversationID.toString()));
                     });
                 }
             });
-            // Send messages
-            String input_text;
-            String input_ID;
+
             controller.setIDListener(text -> {
                 String sanitizedInput = text.replace("\"", "&quot;");
                 String message = buildAddDialog(uniqueIdString.getValue(), sanitizedInput, clientName.toString() , "dialog_request");
                 if (!message.equals("")) out.println(message);
             });
+            controller.setMessageListener(text -> {
+                if (!currentConversationID.getValue().equals("")){
+                    System.out.println("Going in if statement");
+                    String sanitizedInput = text.replace("\"", "&quot;");
+                    String message = buildMessage(uniqueIdString.toString(), currentConversationID.getValue(), sanitizedInput, clientName.getValue());
+                    LocalDateTime currentTime = LocalDateTime.now();
+                    System.out.println("Fine before Messages.get(currentConversationID)");
+                    System.out.println(currentConversationID);
+                    System.out.println(Messages);
+                    Messages.get(currentConversationID.getValue()).add(new cMessage(sanitizedInput,"out",currentTime));
+                    System.out.println("Fine after Messages.get(currentConversationID)");
+                    if (!message.equals("")) out.println(message);
+                    Platform.runLater(() -> {
+                        controller.displayClient(currentConversationID.toString(), Messages, clientName.toString(), DialogNames.get(currentConversationID.toString()));
+                    });
+                }
+
+            });
+            // Send messages
+            String input_text;
+            String input_ID;
             while (true) {
                 input_ID = scanner.nextLine();
                 input_text = scanner.nextLine();
@@ -203,7 +227,7 @@ public class Client {
                     LocalDateTime currentTime = LocalDateTime.now();
 
                     Messages.get(input_ID).add(new cMessage(sanitizedInput,"out",currentTime));
-                    fillWithText(input_ID, 30);
+                    //fillWithText(input_ID, 30);
                     for (int i=0;i<Messages.get(input_ID).size();i++){
                         System.out.println(Messages.get(input_ID).get(i).toString());
                     }
@@ -235,7 +259,7 @@ public class Client {
 class MutableString {
     private String value;
     public MutableString(String value) { this.value = value; }
-    public MutableString() { this.value = null; }
+    public MutableString() { this.value = ""; }
     public String getValue() { return value; }
     public void setValue(String value) { this.value = value; }
 

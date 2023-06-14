@@ -33,7 +33,7 @@
                         <HBox alignment="CENTER_LEFT" prefHeight="74.0" prefWidth="162.0">
                            <children>
                               <TextField fx:id="MessageInput" prefHeight="26.0" prefWidth="461.0" promptText="message" />
-                              <Button fx:id="SendButton" mnemonicParsing="false" prefHeight="26.0" prefWidth="74.0" text="Send">
+                              <Button fx:id="SendButton" mnemonicParsing="false" onAction="#onSendButtonClick" prefHeight="26.0" prefWidth="74.0" text="Send">
                                  <HBox.margin>
                                     <Insets left="10.0" />
                                  </HBox.margin>

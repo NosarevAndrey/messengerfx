@@ -23,7 +23,7 @@ public class Controller {
     private MultipleSelectionModel<String> langsSelectionModel;
     private Consumer<String> MessageListener;
     public void setMessageListener(Consumer<String> listener) {
-        this.IDListener = listener;
+        this.MessageListener = listener;
     }
     @FXML
     private Button SendButton;
@@ -32,10 +32,16 @@ public class Controller {
     @FXML
     public void onSendButtonClick(){
         String text = MessageInput.getText();
-
-
-
+        System.out.println(text);
+        if (text == null || text.trim().isEmpty()) {
+            MessageInput.setText("");
+            return;
+        }
         MessageInput.setText("");
+        if (MessageListener != null) {
+            MessageListener.accept(text);
+        }
+
     }
     @FXML
     private Button copyIdButton;
@@ -101,7 +107,7 @@ public class Controller {
     private ScrollPane MessageScroller;
     @FXML
     private VBox MessageVBox;
-    public void displayClient(String ClientID, Map<String, List<cMessage>> messages, String inName, String outName) {
+    public void displayClient(String ClientID, Map<String, List<cMessage>> messages, String outName, String inName) {
         List<cMessage> clientMessages = messages.get(ClientID);
         if (clientMessages == null) {
             return; // Client ID not found
@@ -141,8 +147,4 @@ public class Controller {
 
     }
 
-//    @FXML
-//    protected void onHelloButtonClick() {
-//        welcomeText.setText("Welcome to JavaFX Application!");
-//    }
 }
