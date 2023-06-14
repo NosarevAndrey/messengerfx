@@ -14,7 +14,10 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 import javafx.geometry.Insets;
-
+import javafx.scene.layout.FlowPane;
+import javafx.scene.control.ListView;
+import javafx.collections.ObservableList;
+import javafx.collections.FXCollections;
 
 public class MessengerApp extends Application {
     private static Controller controller;
@@ -43,22 +46,22 @@ public class MessengerApp extends Application {
         continueButton.setOnAction(event -> {
             String username = usernameField.getText();
 
-            if(isValid(username)){
+            if(isValid(username,30)){
                 // Close the initial window
                 initialStage.close();
 
                 try {
                     FXMLLoader fxmlLoader = new FXMLLoader(MessengerApp.class.getResource("messenger.fxml"));
                     Scene scene = new Scene(fxmlLoader.load());
-                    stage.setTitle("Hello!");
+                    controller = fxmlLoader.getController();
+                    controller.updateUserName(username);
+                    controller.initialize();
+
+                    stage.setTitle("Messenger. Client( " + username + " )");
                     stage.setScene(scene);
                     stage.show();
-                    controller = fxmlLoader.getController();
-                    controller.updateUserIdText("ID_ForID est");
-                    controller.updateUserName(username);
 
                     Stage pStage = (Stage) scene.getWindow();
-
 
                     Thread clientThread = new Thread(() -> {
                         Client client = new Client(controller, username);
@@ -86,9 +89,9 @@ public class MessengerApp extends Application {
             });
     }
 
-    private boolean isValid(String username) {
+    private boolean isValid(String username, int maxlength) {
         String pattern = "^[a-zA-Z0-9_]+$";
-        return username.matches(pattern);
+        return username.matches(pattern) && username.length() < maxlength;
     }
 
     public static void main(String[] args) {

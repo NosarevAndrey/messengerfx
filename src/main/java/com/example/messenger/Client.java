@@ -1,5 +1,7 @@
 package com.example.messenger;
 
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -11,6 +13,7 @@ import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import javafx.application.Platform;
 
 public class Client {
     private static Controller controller;
@@ -19,6 +22,14 @@ public class Client {
     private static Boolean close = false;
     private static Map<String, String> DialogNames = new HashMap<>();
     private static Map<String, List<cMessage>> Messages = new HashMap<>();
+    public static <K, V> K getKeyFromValue(Map<K, V> map, V value) {
+        for (Map.Entry<K, V> entry : map.entrySet()) {
+            if (value.equals(entry.getValue())) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
     public static String buildMessage(String senderID, String receiverID, String cont, String name){
         LocalDateTime currentTime = LocalDateTime.now();
         String formattedTime = currentTime.format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss"));
@@ -59,7 +70,7 @@ public class Client {
                     case "ID_message":
                         uniqueIdString.setValue(map.get("receiver"));
                         System.out.println("User ID: " + uniqueIdString.getValue());
-                        controller.updateUserIdText("User ID: " + uniqueIdString.getValue());
+                        controller.updateUserIdText(uniqueIdString.getValue());
 
                         break;
                     case "send_message":
@@ -72,23 +83,32 @@ public class Client {
                         }
                         break;
                     case "dialog_accept":
-                        if (!map.containsKey(map.get("sender"))){
+                        if (!DialogNames.containsKey(map.get("sender")) && !map.get("sender").equals(map.get("receiver"))){
                             DialogNames.put(map.get("sender"),map.get("sender_name"));
                             Messages.put(map.get("sender"), new ArrayList<>());
+                            Platform.runLater(() -> {
+                                controller.addChat(map.get("sender_name"));
+                            });
+
+                            System.out.println(DialogNames.keySet());
+                            System.out.println(DialogNames.values());
                         }
-                        System.out.println(DialogNames.keySet());
-                        System.out.println(DialogNames.values());
                         break;
                     case "dialog_request":
                         String senderID = map.get("sender");
-                        if (!map.containsKey(senderID)){
-                            DialogNames.put(senderID,map.get("sender_name"));
-                            Messages.put(senderID,new ArrayList<>());
+                        if (!DialogNames.containsKey(senderID) && !map.get("sender").equals(map.get("receiver"))) {
+                            DialogNames.put(senderID, map.get("sender_name"));
+                            Messages.put(senderID, new ArrayList<>());
+                            Platform.runLater(() -> {
+                                controller.addChat(map.get("sender_name"));
+                            });
+
+                            String accept = buildAddDialog(uniqueIdString.getValue(), senderID, CliName.toString(), "dialog_accept");
+                            if (!accept.equals("")) out.println(accept);
+
+                            System.out.println(DialogNames.keySet());
+                            System.out.println(DialogNames.values());
                         }
-                        String accept = buildAddDialog(uniqueIdString.getValue(), senderID,CliName.toString() , "dialog_accept");
-                        if (!accept.equals("")) out.println(accept);
-                        System.out.println(DialogNames.keySet());
-                        System.out.println(DialogNames.values());
                         break;
                     default:
                         System.out.println("Unrecognized message");
@@ -147,6 +167,17 @@ public class Client {
             });
             receiveThread.start();
 
+            MutableString current_ID = new MutableString();
+            controller.setSelectionListener(new ChangeListener<String>() {
+                @Override
+                public void changed(ObservableValue<? extends String> changed, String oldValue, String newValue) {
+                    System.out.println("Selected: " + newValue);
+                    current_ID.setValue(getKeyFromValue(DialogNames, newValue));
+                    Platform.runLater(() -> {
+                        controller.displayClient(current_ID.toString(), Messages, clientName.toString(), DialogNames.get(current_ID.toString()));
+                    });
+                }
+            });
             // Send messages
             String input_text;
             String input_ID;
@@ -172,6 +203,7 @@ public class Client {
                     LocalDateTime currentTime = LocalDateTime.now();
 
                     Messages.get(input_ID).add(new cMessage(sanitizedInput,"out",currentTime));
+                    fillWithText(input_ID, 30);
                     for (int i=0;i<Messages.get(input_ID).size();i++){
                         System.out.println(Messages.get(input_ID).get(i).toString());
                     }
@@ -186,6 +218,15 @@ public class Client {
         }
 
     }
+    public void fillWithText(String input_ID,int amount){
+        String text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed feugiat eros ut tempor ultrices. Cras lacinia aliquet ex, eu laoreet ex tristique in. Curabitur rutrum volutpat elit, eget sagittis ex lobortis non. Maecenas id diam eget tellus fringilla aliquet sit amet ut felis. Nulla tincidunt blandit urna viverra finibus. In eu dapibus tellus. Morbi mattis auctor efficitur. Mauris blandit lorem id elementum lobortis. Donec sed enim lobortis, vestibulum nibh eget, mattis sapien. Praesent non ex sed est suscipit imperdiet id id sapien. Donec convallis felis ac neque mattis, non tincidunt arcu fermentum. Phasellus sed risus eu nulla dictum interdum scelerisque sit amet elit. Sed dapibus augue consectetur ipsum gravida finibus. Nulla vitae sapien gravida, maximus mi et, commodo purus. Phasellus mollis semper mauris, ac aliquam sem feugiat vel. Aenean eleifend diam lacus, non efficitur neque sollicitudin eu.";
+        for (int i=1;i<amount+1;i++){
+            String s = (i%2 == 0) ? "in" : "out";
+            String insert = (i%3 == 0) ? text : "to fill lines";
+            Messages.get(input_ID).add(new cMessage("message " + i + insert,s,LocalDateTime.now()));
+
+        }
+    }
     public void shutDown(){
         close = true;
         System.out.println("Close it finally: " + close);
@@ -194,6 +235,7 @@ public class Client {
 class MutableString {
     private String value;
     public MutableString(String value) { this.value = value; }
+    public MutableString() { this.value = null; }
     public String getValue() { return value; }
     public void setValue(String value) { this.value = value; }
 
@@ -202,6 +244,7 @@ class MutableString {
         return this.value;
     }
 }
+
 class cMessage {
     public String text;
     public LocalDateTime timestamp;
