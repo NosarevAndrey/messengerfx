@@ -83,6 +83,14 @@ class ServeICQ extends Thread {
             e.printStackTrace();
         }
     }
+    public static <K, V> K getKeyFromValue(Map<K, V> map, V value) {
+        for (Map.Entry<K, V> entry : map.entrySet()) {
+            if (value.equals(entry.getValue())) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
     public void run() {
         try {
             String ID_message = buildID(UniqueID);
@@ -95,7 +103,8 @@ class ServeICQ extends Thread {
                     break;
                 handleMessage(str,out);
             }
-            System.out.println("closing...");
+            System.out.println("closing..." + socket);
+            clientSockets.remove(getKeyFromValue(clientSockets,socket));
         }
         catch (IOException e) {
             System.err.println("IO Exception");
@@ -139,8 +148,27 @@ public class server {
             Thread inputThread = new Thread(() -> {
                 while (true) {
                     String input = sc.nextLine();
+                    String pattern = "^close \\| ([a-fA-F0-9-]+)$";
                     if (input.equals("threads"))
                         System.out.println("Number of active threads: " + Thread.activeCount());
+                    if (input.equals("sockets")) {
+                        System.out.print("{  ");
+                        for (String key : clientSockets.keySet())
+                            System.out.print( "\n" + key + "  " + clientSockets.get(key));
+                        System.out.print("  }\n");
+                    }
+                    if (input.matches(pattern)){
+                        String uuidString = input.replaceAll(pattern, "$1");
+                        UUID uuid = UUID.fromString(uuidString);
+                        if (clientSockets.containsKey(uuid.toString())) {
+                            try {
+                                clientSockets.get(uuid.toString()).close();
+                                clientSockets.remove(uuid.toString());
+                            }
+                            catch (IOException e) { e.printStackTrace(); }
+                        }
+                    }
+
                 }
             });
             inputThread.start();

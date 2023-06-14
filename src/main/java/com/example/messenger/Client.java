@@ -10,14 +10,28 @@ import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import javafx.application.Platform;
 
 public class Client {
+    public Client(Controller cont, String userName, String adress){
+        controller = cont;
+        clientName = new MutableString(userName);
+        System.out.println("Your name: " + clientName.toString());
+        try {
+            addr = InetAddress.getByName(adress); // "192.168.0.106" || "localhost"
+            System.out.println("Your IP address: " + addr);
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    private static Thread receiveThread;
     private static MutableString currentConversationID = new MutableString();
     private static Controller controller;
+    private static InetAddress addr;
     private static MutableString clientName;
     private static Socket socket;
     private static Boolean close = false;
@@ -34,6 +48,7 @@ public class Client {
     public static String buildMessage(String senderID, String receiverID, String cont, String name){
         LocalDateTime currentTime = LocalDateTime.now();
         String formattedTime = currentTime.format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss"));
+
         String start ="<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?> <message ";
         String type = String.format("type=\"%s\" ","send_message");
         String sender = String.format("sender=\"%s\" ",senderID);
@@ -70,21 +85,19 @@ public class Client {
                 switch (map.get("type")){
                     case "ID_message":
                         uniqueIdString.setValue(map.get("receiver"));
-                        System.out.println("User ID: " + uniqueIdString.getValue());
+                        System.out.println("Unique Id : " + uniqueIdString.getValue());
                         controller.updateUserIdText(uniqueIdString.getValue());
-
                         break;
                     case "send_message":
                         String sender_ID = map.get("sender");
-                        String content = map.get("content");
-                        String time = map.get("time");
-                        Messages.get(sender_ID).add(new cMessage(content,"in",time));
+                        Messages.get(sender_ID).add(new cMessage(map.get("content"),"in",map.get("time")));
                         for (int i=0;i<Messages.get(sender_ID).size();i++){
                             System.out.println(Messages.get(sender_ID).get(i).toString());
                         }
                         if(currentConversationID.toString().equals(sender_ID))
                             Platform.runLater(() -> {
-                                controller.displayClient(currentConversationID.toString(), Messages, clientName.toString(), DialogNames.get(currentConversationID.toString()));
+                                controller.displayClient(currentConversationID.toString(), Messages,
+                                        clientName.toString(), DialogNames.get(currentConversationID.toString()));
                             });
                         break;
                     case "dialog_accept":
@@ -135,24 +148,13 @@ public class Client {
             e.printStackTrace();
         }
     }
-    public Client(Controller cont, String userName){
-        controller = cont;
-        clientName = new MutableString(userName);
-    }
-    public void run() throws IOException {
-        //Map<String, String> ContactNames = new HashMap<>();
-        Scanner scanner = new Scanner(System.in);
 
-        MutableString uniqueIdString = new MutableString("0");
-        System.out.println("Your name: " + clientName.toString());
-        //clientName = new MutableString(scanner.nextLine());
+    public void run() throws IOException {
         final int PORT = 8080;
-        InetAddress addr = InetAddress.getByName("localhost");
-        System.out.println("addr = " + addr);
-        System.out.println("uniqueId = " + uniqueIdString.getValue());
+        MutableString uniqueIdString = new MutableString("null");
+
         socket = new Socket(addr, PORT);
         PrintWriter out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
-        Thread receiveThread;
         try {
             // Create a separate thread for receiving messages
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -163,7 +165,9 @@ public class Client {
                         if (receivedMessage.equals("END"))
                             break;
                         handleMessage(receivedMessage,uniqueIdString, clientName, out);
-                        if(close) break;
+                        if(close) {
+                            break;
+                        }
                     }
                 }
                 catch (IOException e) {
@@ -179,81 +183,45 @@ public class Client {
                     System.out.println("Selected: " + newValue);
                     currentConversationID.setValue(getKeyFromValue(DialogNames, newValue));
                     Platform.runLater(() -> {
-                        controller.displayClient(currentConversationID.toString(), Messages, clientName.toString(), DialogNames.get(currentConversationID.toString()));
+                        controller.displayClient(currentConversationID.toString(), Messages,
+                                 clientName.toString(), DialogNames.get(currentConversationID.toString()));
                     });
                 }
             });
-
             controller.setIDListener(text -> {
-                String sanitizedInput = text.replace("\"", "&quot;");
+                String sanitizedInput = text.replace("\"", "&quot;")
+                        .replace("&", "&amp;");;
                 String message = buildAddDialog(uniqueIdString.getValue(), sanitizedInput, clientName.toString() , "dialog_request");
                 if (!message.equals("")) out.println(message);
             });
             controller.setMessageListener(text -> {
                 if (!currentConversationID.getValue().equals("")){
-                    System.out.println("Going in if statement");
-                    String sanitizedInput = text.replace("\"", "&quot;");
+                    String sanitizedInput = text.replace("\"", "&quot;")
+                            .replace("&", "&amp;");
                     String message = buildMessage(uniqueIdString.toString(), currentConversationID.getValue(), sanitizedInput, clientName.getValue());
                     LocalDateTime currentTime = LocalDateTime.now();
-                    System.out.println("Fine before Messages.get(currentConversationID)");
-                    System.out.println(currentConversationID);
-                    System.out.println(Messages);
-                    Messages.get(currentConversationID.getValue()).add(new cMessage(sanitizedInput,"out",currentTime));
-                    System.out.println("Fine after Messages.get(currentConversationID)");
+                    Messages.get(currentConversationID.getValue()).add(new cMessage(text,"out",currentTime));
                     if (!message.equals("")) out.println(message);
                     Platform.runLater(() -> {
-                        controller.displayClient(currentConversationID.toString(), Messages, clientName.toString(), DialogNames.get(currentConversationID.toString()));
+                        controller.displayClient(currentConversationID.toString(), Messages,
+                                clientName.toString(), DialogNames.get(currentConversationID.toString()));
                     });
                 }
-
             });
-            // Send messages
-            String input_text;
-            String input_ID;
-            while (true) {
-                input_ID = scanner.nextLine();
-                input_text = scanner.nextLine();
 
-                if (input_text.equalsIgnoreCase("END"))
-                    break;
-                if (close == true)
-                    break;
-                String sanitizedInput = input_text.replace("\"", "&quot;");
-                String message = "";
-                if (input_text.equals("add"))
-                    message = buildAddDialog(uniqueIdString.getValue(), input_ID, clientName.toString() , "dialog_request");
-                else {
-                    message = buildMessage(uniqueIdString.getValue(), input_ID, sanitizedInput, clientName.getValue());
-                    LocalDateTime currentTime = LocalDateTime.now();
-
-                    Messages.get(input_ID).add(new cMessage(sanitizedInput,"out",currentTime));
-                    //fillWithText(input_ID, 30);
-                    for (int i=0;i<Messages.get(input_ID).size();i++){
-                        System.out.println(Messages.get(input_ID).get(i).toString());
-                    }
-                }
-                if (!message.equals("")) out.println(message);
+            while(!close){
+                Platform.requestNextPulse();
             }
+
         }
         finally {
             System.out.println("closing...");
             socket.close();
-
         }
 
-    }
-    public void fillWithText(String input_ID,int amount){
-        String text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed feugiat eros ut tempor ultrices. Cras lacinia aliquet ex, eu laoreet ex tristique in. Curabitur rutrum volutpat elit, eget sagittis ex lobortis non. Maecenas id diam eget tellus fringilla aliquet sit amet ut felis. Nulla tincidunt blandit urna viverra finibus. In eu dapibus tellus. Morbi mattis auctor efficitur. Mauris blandit lorem id elementum lobortis. Donec sed enim lobortis, vestibulum nibh eget, mattis sapien. Praesent non ex sed est suscipit imperdiet id id sapien. Donec convallis felis ac neque mattis, non tincidunt arcu fermentum. Phasellus sed risus eu nulla dictum interdum scelerisque sit amet elit. Sed dapibus augue consectetur ipsum gravida finibus. Nulla vitae sapien gravida, maximus mi et, commodo purus. Phasellus mollis semper mauris, ac aliquam sem feugiat vel. Aenean eleifend diam lacus, non efficitur neque sollicitudin eu.";
-        for (int i=1;i<amount+1;i++){
-            String s = (i%2 == 0) ? "in" : "out";
-            String insert = (i%3 == 0) ? text : "to fill lines";
-            Messages.get(input_ID).add(new cMessage("message " + i + insert,s,LocalDateTime.now()));
-
-        }
     }
     public void shutDown(){
         close = true;
-        System.out.println("Close it finally: " + close);
     }
 }
 class MutableString {
