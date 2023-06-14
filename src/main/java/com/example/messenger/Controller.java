@@ -120,9 +120,10 @@ public class Controller {
 
         for (cMessage message : clientMessages) {
             String name = (message.source.equals("in"))? inName : outName;
-            String formattedMessage = name + ": " + message.text + "\n";
+            String formattedMessage = name + ": " + "\n" + message.text + "\n";
             Text messageText = new Text(formattedMessage);
-            messageText.setWrappingWidth(MessageVBox.getWidth() - 10);
+            messageText.setWrappingWidth(MessageVBox.getWidth() - 20);
+            //messageText.setStyle("-fx-font-size: 14px;");
 
             Rectangle messageBackground = new Rectangle(MessageVBox.getWidth(), messageText.getLayoutBounds().getHeight());
             if (message.source.equals("in")) {

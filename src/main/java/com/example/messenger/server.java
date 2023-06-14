@@ -6,12 +6,14 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.UUID;
 
 
@@ -88,6 +90,7 @@ class ServeICQ extends Thread {
             while (true) {
 
                 String str = in.readLine();
+                if (str == null) break;
                 if (str.equals("END"))
                     break;
                 handleMessage(str,out);
@@ -127,9 +130,22 @@ public class server {
 
     public static void main(String[] args) throws IOException, ParserConfigurationException, SAXException {
         ServerSocket s = new ServerSocket(PORT);
+
         System.out.println("Server Started");
 
+
         try {
+            Scanner sc = new Scanner(System.in);
+            Thread inputThread = new Thread(() -> {
+                while (true) {
+                    String input = sc.nextLine();
+                    if (input.equals("threads"))
+                        System.out.println("Number of active threads: " + Thread.activeCount());
+                }
+            });
+            inputThread.start();
+
+
             while (true) {
                 Socket clientSocket = s.accept();
                 String clientId = UUID.randomUUID().toString();
