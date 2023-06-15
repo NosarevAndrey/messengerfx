@@ -153,7 +153,7 @@ public class server {
                         String text = "Commands:\n" +
                                 "threads\n Displays number of active threads\n" +
                                 "sockets\n Displays map of active sockets and corresponding clientId\n" +
-                                "remove | clientId\n Shuts down socket with id = clientId and remove it from map\n";
+                                "close | clientId\n Shuts down socket with id = clientId and remove it from map\n";
                         System.out.print(text);
                     }
                     if (input.equals("threads"))
